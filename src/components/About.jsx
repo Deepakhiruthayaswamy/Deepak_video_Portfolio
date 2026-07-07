@@ -1,4 +1,4 @@
-import stackImage from "../assets/about/Video_portfolio_second_image.png";
+import stackImage from "../assets/about/Video_portfolio_second_image_new.png";
 
 const About = () => {
   return (
