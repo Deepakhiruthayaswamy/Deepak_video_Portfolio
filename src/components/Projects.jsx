@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 
 import AgencyImage from "../assets/Agency.png";
 import MasspekiImage from "../assets/Masspeki.png";
-import fempsImage from "../assets/femps.png";
+import fempsImage from "../assets/Femps.png";
 import NDISImage from "../assets/NDIS.png";
 import NXPLImage from "../assets/NXPL.png";
 import LovedaleImage from "../assets/Lovedale.png";
