@@ -54,9 +54,6 @@ const socialLinks = [
 const Hero = () => {
   const videoRef = useRef(null);
   const playCountRef = useRef(0);
-  const hasAutoStartedRef = useRef(false);
-  const isDelayCompleteRef = useRef(false);
-  const delayTimerRef = useRef(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isVideoReady, setIsVideoReady] = useState(false);
 
@@ -68,116 +65,42 @@ const Hero = () => {
     });
 
     const video = videoRef.current;
-    if (!video) return undefined;
+    if (!video) return;
 
-    video.muted = false;
-    video.volume = 1;
-    video.playsInline = true;
-    video.loop = false;
-    video.preload = "auto";
     video.pause();
-    video.load();
+    video.currentTime = 0;
+    video.preload = "auto";
+    video.loop = false;
+    video.playsInline = true;
+    video.volume = 1;
+    video.muted = false;
 
-    const resetStartFrame = () => {
-      try {
-        video.currentTime = 0;
-      } catch {
-        // Metadata not ready.
-      }
-    };
-
-    const waitForVideoReady = () =>
-      new Promise((resolve) => {
-        if (video.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) {
-          resolve();
-          return;
-        }
-
-        const handleReady = () => {
-          video.removeEventListener("canplay", handleReady);
-          video.removeEventListener("canplaythrough", handleReady);
-          resolve();
-        };
-
-        video.addEventListener("canplay", handleReady);
-        video.addEventListener("canplaythrough", handleReady);
-      });
-
-    const startVideoFromStart = async () => {
-      if (!video) return;
-      hasAutoStartedRef.current = true;
-      playCountRef.current = 0;
-      setIsPlaying(false);
-      video.muted = false;
-      video.volume = 1;
-      video.playsInline = true;
-      video.loop = false;
-      video.pause();
-      resetStartFrame();
-      await waitForVideoReady();
-      resetStartFrame();
-
-      try {
-        await video.play();
-      } catch {
-        video.muted = true;
-        video.play().catch(() => video.pause());
-      }
-    };
-
-    const handleEnded = () => {
-      playCountRef.current += 1;
-      if (playCountRef.current < 2) {
-        video.currentTime = 0;
-        video.play().catch(() => {});
-        return;
-      }
-
-      video.pause();
-      video.currentTime = Math.max(video.duration - 0.08, 0);
-      setIsPlaying(false);
-    };
-
-    const handlePlay = () => setIsPlaying(true);
-    const handlePause = () => setIsPlaying(false);
-
-    const setStartFrame = () => {
-      resetStartFrame();
+    const handleLoaded = () => {
       setIsVideoReady(true);
     };
 
-    const scheduleHeroStart = () => {
-      if (hasAutoStartedRef.current || delayTimerRef.current) return;
-      delayTimerRef.current = window.setTimeout(() => {
-        isDelayCompleteRef.current = true;
-        startVideoFromStart();
-        delayTimerRef.current = null;
-      }, 4000);
+    const handlePlay = () => {
+      setIsPlaying(true);
     };
 
-    const handleWindowLoad = () => {
-      scheduleHeroStart();
+    const handlePause = () => {
+      setIsPlaying(false);
     };
 
-    video.addEventListener("ended", handleEnded);
+    const handleEnded = () => {
+      video.pause();
+      setIsPlaying(false);
+    };
+    video.addEventListener("loadedmetadata", handleLoaded);
     video.addEventListener("play", handlePlay);
     video.addEventListener("pause", handlePause);
-    video.addEventListener("loadedmetadata", setStartFrame);
-    if (document.readyState === "complete") {
-      handleWindowLoad();
-    } else {
-      window.addEventListener("load", handleWindowLoad);
-    }
+    video.addEventListener("ended", handleEnded);
 
     return () => {
-      video.removeEventListener("ended", handleEnded);
+      video.removeEventListener("loadedmetadata", handleLoaded);
       video.removeEventListener("play", handlePlay);
       video.removeEventListener("pause", handlePause);
-      video.removeEventListener("loadedmetadata", setStartFrame);
-      window.removeEventListener("load", handleWindowLoad);
-      if (delayTimerRef.current) {
-        window.clearTimeout(delayTimerRef.current);
-      }
+      video.removeEventListener("ended", handleEnded);
     };
   }, []);
 
@@ -185,46 +108,22 @@ const Hero = () => {
     const video = videoRef.current;
     if (!video) return;
 
-    if (!isDelayCompleteRef.current) return;
-
     if (isPlaying) {
       video.pause();
       return;
     }
 
-    await (async () => {
-      hasAutoStartedRef.current = true;
-      playCountRef.current = 0;
-      video.muted = false;
-      video.volume = 1;
-      video.playsInline = true;
-      video.loop = false;
-      video.pause();
-      try {
-        video.currentTime = 0;
-      } catch {
-        // Ignore if metadata not ready.
-      }
-      if (video.readyState < HTMLMediaElement.HAVE_FUTURE_DATA) {
-        await new Promise((resolve) => {
-          const handleReady = () => {
-            video.removeEventListener("canplay", handleReady);
-            video.removeEventListener("canplaythrough", handleReady);
-            resolve();
-          };
+    playCountRef.current = 0;
 
-          video.addEventListener("canplay", handleReady);
-          video.addEventListener("canplaythrough", handleReady);
-        });
-      }
-      video.currentTime = 0;
-      try {
-        await video.play();
-      } catch {
-        video.muted = true;
-        video.play().catch(() => video.pause());
-      }
-    })();
+    video.currentTime = 0;
+    video.muted = false;
+    video.volume = 1;
+
+    try {
+      await video.play();
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   return (
@@ -301,7 +200,7 @@ const Hero = () => {
         <button
           type="button"
           onClick={handlePlayReel}
-          disabled={!isDelayCompleteRef.current || !isVideoReady}
+          disabled={!isVideoReady}
           aria-label={isPlaying ? "Stop Reel" : "Play Reel"}
           className="hero-play-reel-button group"
         >
@@ -310,7 +209,7 @@ const Hero = () => {
             <svg
               viewBox="0 0 24 24"
               aria-hidden="true"
-              className="relative h-6 w-6 text-white"
+              className="relative h-10 w-10 text-white"
             >
               <path d="M8 5h3v14H8zM13 5h3v14h-3z" fill="currentColor" />
             </svg>
@@ -325,11 +224,7 @@ const Hero = () => {
           )}
         </button>
         <span className="hero-play-reel-label">
-          {!isDelayCompleteRef.current || !isVideoReady
-            ? "Preparing"
-            : isPlaying
-              ? "Stop Reel"
-              : "Play Reel"}
+          {!isVideoReady ? "Loading..." : isPlaying ? "Stop Reel" : "Play Reel"}
         </span>
       </div>
 
